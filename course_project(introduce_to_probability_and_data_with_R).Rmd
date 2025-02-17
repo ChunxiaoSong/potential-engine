@@ -1,0 +1,260 @@
+---
+title: "Exploring the BRFSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(MASS)
+library(gridExtra)
+```
+
+### Load data
+
+Make sure your data and R Markdown files are in the same directory. When loaded
+your data file will be called `brfss2013`. Delete this note when before you submit 
+your work. 
+
+```{r load-data}
+load("brfss2013.RData")
+```
+
+
+
+The Behavioral Risk Factor Surveillance System (BRFSS) - 2013
+
+Background
+From BRFSS Overview
+
+The Behavioral Risk Factor Surveillance System (BRFSS) is a collaborative project between all of the states in the United States (US) and participating US territories and the Centers for Disease Control and Prevention (CDC). The BRFSS is administered and supported by CDC’s Population Health Surveillance Branch, under the Division of Population Health at the National Center for Chronic Disease Prevention and Health Promotion. BRFSS is an ongoing surveillance system designed to measure behavioral risk factors for the non-institutionalized adult population (18 years of age and older) residing in the US. The BRFSS was initiated in 1984, with 15 states collecting surveillance data on risk behaviors through monthly telephone interviews. Over time, the number of states participating in the survey increased; by 2001, 50 states, the District of Columbia, Puerto Rico, Guam, and the US Virgin Islands were participating in the BRFSS. Today, all 50 states, the District of Columbia, Puerto Rico, and Guam collect data annually and American Samoa, Federated States of Micronesia, and Palau collect survey data over a limited point- in-time (usually one to three months). In this document, the term “state” is used to refer to all areas participating in BRFSS, including the District of Columbia, Guam, and the Commonwealth of Puerto Rico.
+
+The BRFSS objective is to collect uniform, state-specific data on preventive health practices and risk behaviors that are linked to chronic diseases, injuries, and preventable infectious diseases that affect the adult population. Factors assessed by the BRFSS in 2013 include tobacco use, HIV/AIDS knowledge and prevention, exercise, immunization, health status, healthy days — health-related quality of life, health care access, inadequate sleep, hypertension awareness, cholesterol awareness, chronic health conditions, alcohol consumption, fruits and vegetables consumption, arthritis burden, and seatbelt use. Since 2011, BRFSS conducts both landline telephone- and cellular telephone-based surveys. In conducting the BRFSS landline telephone survey, interviewers collect data from a randomly selected adult in a household. In conducting the cellular telephone version of the BRFSS questionnaire, interviewers collect data from an adult who participates by using a cellular telephone and resides in a private residence or college housing.
+
+Health characteristics estimated from the BRFSS pertain to the non-institutionalized adult population, aged 18 years or older, who reside in the US. In 2013, additional question sets were included as optional modules to provide a measure for several childhood health and wellness indicators, including asthma prevalence for people aged 17 years or younger.
+
+References
+BRFSS web site: http://www.cdc.gov/brfss/
+BRFSS Questionnaire (Mandatory and Optional Modules): http://www.cdc.gov/brfss/questionnaires/pdf-ques/2013%20BRFSS_English.pdf
+BRFSS Codebook: http://www.cdc.gov/brfss/annual_data/2013/pdf/CODEBOOK13_LLCP.pdf
+BRFSS Guide to Calculated Variables: http://www.cdc.gov/brfss/annual_data/2013/pdf/2013_Calculated_Variables_Version15.pdf
+BRFSS Guide to Optional Modules Used, by State: http://apps.nccd.cdc.gov/BRFSSModules/ModByState.asp?Yr=2013
+Dataset notes
+The dataset is provided in both Stata (.dta) and R Workspace (.Rdata) formats. Categorical values are factors in the R workspace, and value labels are attached in the Stata version (except when a categorical variable contains more than 50 categories.
+
+All missing values are coded NA in the R Workspace. For Stata, missing values are coded missing using the following codes: . (numbers) or empty text field: BLANK; .a: Dont know/Not sure; .b: Refused; .c: Zero (none); .d: Dont know/Not Sure Or Refused/Missing
+
+Many variables, such as age, race, education, as well as variables that measure counts of events (drinks, times eating fruit, etc.) have alternate versions in the Calculated Variables section of the dataset. Review this section prior to choosing variables for analysis.
+
+The skip logic used in the survey is contained in the notes section for each variable where present.
+
+## Part 1: Data
+
+Since 2011, BRFSS conducts both landline telephone- and cellular telephone-based surveys. In conducting the BRFSS landline telephone survey, interviewers collect data from a randomly selected adult in a household. In conducting the cellular telephone version of the BRFSS questionnaire, interviewers collect data from an adult who participates by using a cellular telephone and resides in a private residence or college housing.
+
+Since the data I use is from 2013, it was collected in the same way: by landline telephone- or cellular telephone-based interviews. All 50 states participated in the BRFSS, and the samples were selected randomly. Therefore, the findings I draw from this study can be generalized to the population (all American residents who have a landline telephone or cellular telephone) without considering the non-response bias. The population is all American residents who have a landline telephone or cellular telephone, not all Americans, because I need to take people who do not use telephone into account. Those persons are more likely to have lower incomes, so it will create bias when exploring the relationship between behavioral risk factors and residents' incomes, if I assume the population is all Americans. Remember, there are 22 optional modules in the survey, which means not all samples responded on them, so I will avoid to use these variables.
+
+However, BRFSS's study was a retrospective observational study, and it did not apply random assignment. As a result, I can only detect some associations among variables rather than causal conclusions.
+
+```{r discription_brfss2013}
+dim(brfss2013)
+names(brfss2013)
+```
+
+## Part 2: Research questions
+
+**Research quesion 1:**
+
+Is the situation of tobacco use related to people's sex, education level, income level or location (state)?
+
+In China, smoking is often associated with men, and it is unusual for a woman to smoke. Is the assumption is true in America? Besides, smoking is a bad habit and secondhand smoke is harmful to public health. Then, whether or not the upper-class (people with higher education level and higher income level) tend to not smoking? Third, whether the habit of smoking is related to the region, which means the smokers are concentrated on some states? 
+
+In this part, I define the people who smoked at least 100 cigarettes as smokers.
+
+**Research quesion 2:**
+
+If the healthier people tend to sleep longer everyday? 
+
+Children are always told the sufficient sleep helps them grow up. Adults will get tired and be sick if they do not have enough sleep during a period of time. Therefore, whether or not people will be healthier with longer time of sleep, or they just need a moderate sleep? 
+
+There are some factors to measure residents' health, like health status(genhlth), number of days that people's health are not good (physhlth, menthlth, and poorhlth).  
+**Research quesion 3:**
+
+Are people who exercise regularly tend to not smoking? 
+
+Some people contends that smoking is bad to our health and exercising regularly is benefit to people's health. Based on these opinions, I assume that people who exercise regularly value their healthy conditions, and they are less likely to have habits that harms their health. If this hypothesis is  true, I will see a negative association between people's exercise time and the habit of smoking, which means they are less likely to have smoked at least 100 cigarettes, and they are more likely to have stopped smoking in past 12 months. Besides, people who exercise more time are likely to have longer interval since last smoked.
+
+Here, I will use the factors like smoke100, smokday2, stopsmk2, lastsmk2, exerany2, exeroft1, exeroft2.
+
+
+## Part 3: Exploratory data analysis
+
+**Research quesion 1:**
+
+Is the situation of tobacco use related to people's sex, education level, income level or location (state)?
+
+```{r smoke-sex}
+smoke_sex<-brfss2013%>%
+  count(sex,smoke100)
+ggplot(data=smoke_sex, aes(x=sex, y=n, fill=smoke100))+geom_bar(stat = "identity", position = position_dodge())
+smoke_sex<-smoke_sex%>%
+  group_by(sex)%>%
+  mutate(prop=n/sum(n))
+print( smoke_sex )
+```
+The bar plot shows that the proportion of smokers is higher than that of non-smokers in men, whereas the situation is reversed in women. However the amount of female smokers are larger than male.
+
+The table shows more details about the proportions. In men, there are about 50.15% smokers and 46.67% non-smokers. In contrast, 39.31% of women smoke and 57.74% of women do not smoke. Therefore, it is true that there is differences about the behavior of smoking between sex, just like people assumed in China.
+
+The amount of female samples is obviously larger than the amount of male samples. This might be caused by the methods of sampling. When the survey is done through landline telephone, women are more likely to be the one who answer the phone call. 
+
+
+```{r smoke_education level}
+smoke_educa<-brfss2013%>%
+  count(educa,smoke100)
+ggplot(data=smoke_educa, aes(x=educa, y=n, fill=smoke100))+geom_bar(stat = "identity", position = position_dodge())+coord_flip()
+```
+
+The bar plot shows that the proportion of smokers is higher than that of non-smokers in people whose education level is some high school or high school graduate, whereas the number of non-smokers is higher than that of smokers in people whose education level is never attended school or only kindergarten, elementary, some college or technical school, or college graduate. This difference is much more obvious in people who graduated from college, while the number of non-smokers is 107845, and the number of smokers is 58109, nearly half of the non-smokers.
+
+Therefore, the behavior of smoking have relationship with people's education level, especially those people who graduated from college are unlikely to smoke. Besides, the development of the behavior of smoking might have some relationships with high school, which need more study to clarify.
+
+```{r smoke_income level}
+smoke_income<-brfss2013%>%
+  count(income2,smoke100)
+smoke_income<-smoke_income%>%
+  group_by(income2)%>%
+  mutate(prop=n/sum(n))
+ggplot(data=smoke_income, aes(x=income2, y=n, fill=smoke100))+geom_bar(stat = "identity", position = position_dodge())+coord_flip()
+ggplot(data=smoke_income, aes(x=income2, y=prop, fill=smoke100))+geom_bar(stat = "identity", position = "stack")+coord_flip()
+```
+
+The bar plot shows that the proportion of smokers is higher than that of non-smokers when people earn less than 25,000 dollars a year, while the proportion of non-smokers goes up when people earn more than 25,000 dollars a year. This tendency is particularly obvious in the group of people who earn more than 75,000 dollars a year.
+
+The standard bar plot illustrates the trend more clearly. When the income level of samples rise, the proportion of smokers increases first and reach a peak at 54%, from 51% in group "less than $10,000" to 54% in group "less than $15,000", followed by a continuous fall (from 54% to 36% in group "$75,000 or more"). 
+
+Both of plots shows that the behavior of smoking is related to people's income level, and those who have higher income are less likely to smoke.
+
+```{r smoke_state}
+smoke_state<-brfss2013%>%
+  count(X_state, smoke100)
+smoke_state<-smoke_state%>%
+  group_by(X_state)%>%
+  mutate(prop=n/sum(n))
+smoke_state1<-smoke_state%>%
+  filter(smoke100=="Yes")
+arrange(smoke_state1, desc(prop))
+arrange(smoke_state1, desc(n))
+```
+
+These two tables arranged the states by the proportion and number of smokers in a descending order.
+
+In the first table, states are arranged by the proportion of smokers. It is easy to find that Maine has the maximal proportion of smokers, but the proportions in Maine and West Virginia are so close (50.5% in Maine, 50.1% in West Virginia), and the difference between them is less than 0.5%. Besides, the states that has the minimal proportion of smokers is Utah, it only has 26.8% smokers. 
+
+Then, turn to the second table. Florida has the most smokers, while neither Maine nor West Virginia is in the top ten states that have most smokers. Moreover, Florida has the forth largest proportion of smokers, which is 48.7%.
+
+Therefore, there might be some relationships between the behavior of smoking and states. At least, people live in states like Maine, West Virginia and Florida are more likely to smoke than those in Utah.
+
+Overall, the behavior of tobacco use is related to people's sex, education level, income level and location (state). In specific, men are more likely to smoke than women, and people who have high education level or income level are less likely to smoke, and the proportion of smokers in some states is higher than that in others.
+
+
+**Research quesion 2:**
+
+If the healthier people tend to sleep longer everyday? 
+
+```{r health_sleep}
+health_sleep<-brfss2013%>%
+  filter(!is.na(genhlth), !is.na(sleptim1))
+ggplot(health_sleep, aes(x=genhlth, y=sleptim1, fill=genhlth)) +
+  geom_boxplot() +
+  ggtitle(' sleeptime by genhlth ')
+ggplot(health_sleep, aes(x=sleptim1)) +
+  geom_histogram(binwidth = 1)+
+  facet_wrap(~genhlth,ncol=2)
+health_sleep%>%
+  group_by(genhlth)%>%
+  summarise(mean(sleptim1), median(sleptim1), sd(sleptim1), IQR(sleptim1))
+```
+
+In this part, I explored the relationship between people's general health status and the length of their sleep time a day. From these plots and tables, it is obvious that the variability of sleep time in the group that people who have poor health status is higher than other groups, and people who have worse health status tend to have shorter sleep time.
+
+First, the side by side box plot illustrates that the distributions of all the five groups are right skewed. Moreover, the median and variability of the first  four groups (people whose health status are excellent, very good, good, and fair) are similar, with a median of 7 hours every day and a IQR of 2 hours, while the median of the group five (people who have poor health status) is lower (6 hours) and the IQR is higher (3 hours, the Q1 is less than other groups, but the Q3 is equal to others). 
+
+Second, the histograms shows that all of distributions of the five groups are unimodal and right skewed. Specifically, the length of sleep time is more concentrated on 6, 7, and 8 hours in the first three groups, while the mode is less pronounced in the last two groups.
+
+Third, the table compares the mean, median, sd, and IQR of each groups. It verifies the tendency that I found in the box plots: people who have worse health status tend to have shorter sleep time. As the table shows, when the health status of people goes better, the mean length of sleep time increases from 6.7 hours to 7.2 hours.
+
+Therefore, there is a positive association between better health status and longer sleep time.
+
+```{r healthday_sleptiml}
+healthday_sleep<-brfss2013%>%
+  filter(!is.na(physhlth),!is.na(menthlth),!is.na(poorhlth), !is.na(sleptim1))
+ggplot(healthday_sleep, aes(sleptim1, physhlth))+geom_point(na.rm = TRUE, alpha=0.3)+
+  geom_smooth(na.rm = TRUE, method = "gam", formula = y ~ s(x, bs = "cs"))+
+  scale_x_continuous(limits = c(0,24))+
+  scale_y_continuous(limits = c(0,30))
+ggplot(healthday_sleep, aes(sleptim1, menthlth))+geom_point(na.rm = TRUE, alpha=0.3)+
+  geom_smooth(na.rm = TRUE, method = "gam", formula = y ~ s(x, bs = "cs"))+
+  scale_x_continuous(limits = c(0,24))+
+  scale_y_continuous(limits = c(0,30))
+ggplot(healthday_sleep, aes(sleptim1, poorhlth))+geom_point(na.rm = TRUE, alpha=0.3)+
+  geom_smooth(na.rm = TRUE, method = "gam", formula = y ~ s(x, bs = "cs"))+
+  scale_x_continuous(limits = c(0,24))+
+  scale_y_continuous(limits = c(0,30))
+```
+In these scatter plots, I explored the relationship between the length of sleep time and the number of days that people's health are not good. These plots show that people are more likely to have better physical and mental health when they sleep 7-8 hours a day. Besides, all of the distributions displayed by the fitting curves are near to the normal distribution.
+
+In the first plot, it can be seen that people who sleep 7 hours a day tend to feel their health are not good in less than 7 days a month, and who sleep 6-8 hours tend to feel their physical health are not good in less than 8 days. The other two plots share the similar trend with the first one. People who sleep 7-8 hours tend to feel their mental health are not good in less than 5 days, and people who sleep 6.5-8 hours tend to feel their general health are not good in less than 4 days.
+
+In conclusion, there exists a positive association between better health status and longer time of sleep, and the people who sleep 7-8 hours a day are more like to be healthier both in physical and mental.
+
+**Research quesion 3:**
+
+Are people who exercise regularly tend to not smoking?
+
+In this part, "exerany2" represents whether or not people have exercised in past 30 days; "exeroft1" and "exeroft2" represent how many times they exercised in a year, and each variable represent a type of exercise. Therefore, I will add the "exeroft1" and "exeroft2" to create a new variable "exeroft".
+
+```{r exercise_smoke}
+p1<-ggplot(brfss2013)+geom_bar(aes(x=exerany2, fill=smoke100), position = "fill")
+p2<-ggplot(brfss2013)+geom_bar(aes(x=smokday2, fill=exerany2), position = "fill")
+p3<-ggplot(brfss2013)+geom_bar(aes(x=stopsmk2, fill=exerany2), position = "fill")
+p4<-ggplot(brfss2013)+geom_bar(aes(x=lastsmk2, fill=exerany2), position = "fill")+
+  coord_flip()
+grid.arrange(p1, p2, p3, p4, ncol=2)
+```
+
+These standard bar plots illustrate that people who exercised in past 30 days are less likely to have a smoking habit, and if they smoked, they smoke less often than others and tend to have tried to quit smoking.
+
+In the first plot, it is obvious that the proportion of non-smokers in the group that people exercised in past 30 days is higher than that of smokers, nearly 55% vs 45%, while the proportion of smokers is slightly higher in the group of people who did not exercise. Then, the second plot shows that the group of people who smoke everyday has the least proportion of people who exercise, and the group of people who smoke in some days has the second least proportion of people who exercise, then the group of people who never smoke has the largest proportion. The third bar plot illustrates that people who have tried to stop smoking tend to have the exercising habit, and the proportion of people who exercise in the group of people who have tried to quit smoking is higher than its counterpart, and the situation is reversed in the group of people who have not tried to stop smoking. Finally, in the forth plot, the proportions of people who exercised in past 30 days in each group are similar, but there still exists an increasing tendency as the interval since last smoked comes longer, and it reaches the peak in the group of people who never smoked regularly.
+
+Therefore, there is a negative association between the behavior of exercising and smoking, that means people who exercised in past 30 days tend to refuse smoking.
+
+```{r exertime_smoke}
+exertime_smoke<-brfss2013%>%
+  mutate(exeroft=exeroft1 + exeroft2)
+p1<-ggplot(exertime_smoke, aes(x=exeroft, y=smoke100, fill=smoke100))+
+  geom_boxplot(na.rm = TRUE)
+p2<-ggplot(exertime_smoke, aes(x=exeroft, y=smokday2, fill=smokday2))+
+  geom_boxplot(na.rm = TRUE)
+p3<-ggplot(exertime_smoke, aes(x=exeroft, y=stopsmk2, fill=stopsmk2))+
+  geom_boxplot(na.rm = TRUE)
+grid.arrange(p1, p3, p2, ncol=2)
+ggplot(exertime_smoke, aes(x=exeroft, y=lastsmk2, fill=lastsmk2))+
+  geom_boxplot(na.rm = TRUE)
+```
+
+In the last part, I examined the relationship between the times people exercised in a year and the behavior of smoking. I applied side by side box plots to illustrate their relationships, and the findings are interesting.
+
+In the first plot, both of the distributions of two groups are right skewed, but the group of non-smokers has a longer left tail than the other, and has smaller values of median and IQR. The situations are similar in the following plots. The group of people who smoke everyday has the largest values of median and IQR than other groups of smoking frequency, and the group of people who smoked within the past month has the largest value of median than other groups of smoking interval, although the distribution of all groups is very similar and have little difference. 
+
+However, the relation between exercise and the behavior of stop smoking is different from others. They are nearly the same as each other, except that the distribution of the group that people who have tried to stop smoking has a longer right tail and more outliers. 
+
+Overall, people who exercise tend to refuse smoking, but there is not a negative association between the times people exercised in a year and the behavior of smoking as I assumed before. The reason of this finding requires more data and study to explore.
