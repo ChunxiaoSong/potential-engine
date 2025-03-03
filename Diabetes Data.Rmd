@@ -1,0 +1,255 @@
+---
+title: "diabetes data"
+output: html_document
+date: "2025-03-02"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Analyze Diabetes Data by Logistic Regression
+
+```{r load_data_diabetes}
+g<-read.csv(file ="D:/Coursera/Imperial college/diabetes data for R.csv", header = TRUE, sep = ',' )
+dim(g)
+colnames(g)
+```
+
+## Transfrom numerical variables to categorical 
+
+First,make one variable per column.
+```{r variable_colume}
+chol<-g$chol
+gender<-as.factor(g$gender)
+dm<-as.factor(g$dm)
+```
+
+## Check the Number and Proportion of Each Gender
+
+```{r check_gender}
+t<-table(gender)
+addmargins(t)
+round(prop.table(t),digits = 3)
+round(100*prop.table(t),digits = 1)
+```
+
+## Reserve Missing Values
+
+```{r NA_dm}
+dm2<-factor(dm, exclude = NULL)
+table(dm2)
+```
+
+For categorical variable, we use "table" to check its proporties, and use "summary" to see numerical variables.
+
+## See Numerical Variables
+
+```{r num_chol}
+summary(chol)
+```
+The “summary” command give us missing values by default, but "table" command does not.
+
+## Check the Relationship Between Obese and Diabetes
+
+We create a new variable "bmi" to measure whether or not smoeone is obese. 'bmi'='weight'(kilogram)/'height'(metre)^2.
+Then, we categorize bmi into four groups: underweight [<18.5], normal [18.5-25], overweight [>25] and obese [>30].
+```{r dm_by_bmi}
+height<-g$height
+weight<-g$weight
+summary(height)
+summary(weight)
+height.si=height*0.0254
+weight.si=weight*0.453592
+bmi<-weight.si/height.si^2
+summary(bmi)
+bmi_categorised<-ifelse(bmi<18.5,"underweight", ifelse(bmi>=18.5&bmi<=25, "normal", ifelse(bmi>25&bmi<=30, "overweight", ifelse(bmi>30, "obese", NA))))
+dm_by_bmi_category<-table(bmi_categorised, dm2, exclude = NULL)
+dm_by_bmi_category
+round(100*prop.table(dm_by_bmi_category, margin=1), digits = 1)
+```
+In the function "prop.table", using the argument margin = 1, we can specify that the table gives us the row percentages. If we entered margin = 2, this would display the inverse.
+
+## Check the distribution of Age and Gender
+
+```{r gender_by_age}
+age<-g$age
+age_categorised<-ifelse(age<45, "under45", ifelse(age>=45&age<65, "45-64", ifelse(age>=65&age<75, "65-74", ifelse(age>=75,"over75", NA))))
+table(age_categorised)
+gender_by_age_category<-table(age_categorised, gender, exclude = NULL)
+gender_by_age_category
+round(100*prop.table(gender_by_age_category, margin = 1), digits = 1)
+round(100*prop.table(gender_by_age_category), digits = 1)
+```
+
+## Simple Logistic Regression
+
+The simplest model we can fit is one with no predictors whatsoever in it. This is called the empty or null model and is rarely useful. It has the assumption that everyone has the same odds of having the outcome (diabetes in our example).
+```{r dm_null_model}
+m<-glm(dm~1, family=binomial(link = logit))
+summary(m)
+exp(-1.7047)
+table(dm)
+```
+Next, the model with one predictor.
+```{r one_predictor}
+m<-glm(dm~gender, family = binomial(link=logit))
+summary(m)
+m<-glm(dm~age, family = binomial(link=logit))
+summary(m)
+exp(m$coefficients)
+```
+We need to check if the relation between age and the log odds of having diabetes is linear, and the plots will work.
+```{r check_linear}
+dm_by_age<-table(age, dm)
+freq_table<-prop.table(dm_by_age, margin = 1)
+odds<-freq_table[,"yes"]/freq_table[,"no"]
+logodds <- log(odds)
+plot(rownames(freq_table), logodds)
+```
+
+```{r dm_by_location}
+location<-g$location
+m<-glm(dm~location, family = binomial(link = logit))
+summary(m)
+exp(m$coefficients)
+dm_by_location<-table(dm, location)
+prop.table(dm_by_location, margin = 2)
+```
+
+## Multiple Logistic Regression
+
+The multiple regression case has multiple predictors and one response variable, that is why it’s called “multiple regression”. 
+We start with simple logistic regression, to check the relationship between 'dm' and other variables, like 'age', 'gender', 'chol', 'bmi', and 'hdl'.
+```{r dm_by_age}
+hist(age)
+d<-density(age)
+plot(d,main="")
+m<-glm(dm~age_categorised, family = binomial(link = logit))
+summary(m)
+exp(m$coefficients)
+```
+```{r describe_gender}
+table(gender)
+```
+```{r dm_by_chol}
+hist(chol)
+chol.no.na <- chol[is.na(chol)==0]
+d <- density(chol.no.na)
+plot(d,main = "") 
+chol_categorised <- ifelse(chol < 200, "healthy",  
+                           ifelse(chol < 240, "borderline high", 
+                                  ifelse(chol >= 240, "high", NA))) 
+m<-glm(dm~chol_categorised, family = binomial(link = logit))
+summary(m)
+exp(m$coefficients)
+```
+```{r dm_by_bmi2}
+hist(bmi)
+bmi.no.na <- bmi[is.na(bmi)==0]
+d <- density(bmi.no.na)
+plot(d,main = "") 
+m<-glm(dm~bmi_categorised, family = binomial(link = logit))
+summary(m)
+exp(m$coefficients)
+```
+```{r dm_by_hdl}
+hdl<-g$hdl
+hist(hdl)
+hdl.no.na <- hdl[is.na(hdl)==0]
+d <- density(hdl.no.na)
+plot(d,main = "") 
+hdl_categorised <- ifelse(hdl < 40, "healthy",  
+                           ifelse(hdl < 60, "borderline high", 
+                                  ifelse(hdl >= 60, "high", NA)))
+m<-glm(dm~hdl_categorised, family = binomial(link = logit))
+summary(m)
+exp(m$coefficients)
+```
+Then, we use a multiple logistic regression to see the relationships at the same time.
+```{r dm_by_age_gender_bmi}
+m<-glm(dm~age+gender+bmi, family = binomial(link = logit))
+summary(m)
+exp(m$coefficients)
+exp(confint(m))
+```
+
+Another multiple logistic regression.
+```{r dm_by_age_chol_insu}
+insurance<-as.factor(g$insurance)
+m<-glm(dm~age+chol+insurance, family = binomial(link = logit))
+summary(m)
+exp(m$coefficients)
+```
+
+## Model Fit
+
+```{r R2_dm}
+full_model<-glm(dm~age+chol+insurance, family = binomial(link = logit))
+null_model<-glm(dm~1, family = binomial(link = logit))
+R2<-1-logLik(full_model)/logLik(null_model)
+R2
+```
+
+A c-statistic of 0.5 indicates that the model is only as good at predicting the outcome as random chance (i.e. no discrimination). As the curve pulls away and above from the black line, the area under it increases, so therefore the discrimination increases. A c-statistic of 1 would be perfect, but of course this never happens in real life and in fact, the theoretical maximum for a given model is often lower than this. 
+```{r c_statistic}
+require(DescTools)
+summary(full_model)
+Cstat(full_model)
+```
+AIC is short for Akaike Information Criterion and measures the quality of a model in terms of the amount of information lost by that model. Small AIC values are best.
+
+
+Hosmer-Lemeshow statistic and test
+
+Pearson’s chi-square test is applied to compare observed counts with expected counts. A large p value (>0.05) indicates that the model’s predicted values are a good match for the real (observed) values, i.e. the model is a good fit.
+```{r H-L_test}
+require(ResourceSelection)
+HL<-hoslem.test(x=full_model$y, y=fitted(full_model), g=10)
+HL
+plot(HL$observed[,"y1"], HL$expected[,"yhat1"])
+plot(HL$observed[,"y0"], HL$expected[,"yhat0"])
+plot(x = HL$observed[,"y1"]/(HL$observed[,"y1"]+HL$observed[,"y0"]), 
+     y = HL$expected[,"yhat1"]/(HL$expected[,"yhat1"]+HL$expected[,"yhat0"]))
+require(generalhoslem)
+logitgof(obs = full_model$y, exp = fitted(full_model), g = 10)
+```
+
+```{r Chi_square_test}
+anova(full_model, test = "Chisq")
+```
+
+## Find the Appropriate Model by Applying Backwards Elimination
+
+```{r backwards_dm_vars5}
+fh <- as.factor(g$fh) 
+smoking <- as.factor(g$smoking)
+ratio <- g$ratio
+frame <- as.factor(g$frame)
+systolic <- g$bp.1s 
+diastolic <- g$bp.1d
+model<-glm(dm~age+bmi+chol+hdl+systolic+diastolic, family = binomial(link = logit))
+summary(model)
+anova(model, test = "Chisq")
+model1<-glm(dm~age+bmi+chol+hdl, family = binomial(link = logit))
+summary(model1)
+```
+
+See if blood pressure correlates with other variables.
+```{r collinear_bp}
+cor.test(systolic,hdl)
+cor.test(systolic,bmi)
+cor.test(systolic,chol)
+cor.test(systolic,age)
+```
+
+```{r backwards_dm_vars11}
+full_model<-glm(dm~age+bmi+chol+hdl+systolic+diastolic
+                +gender+location+frame+insurance+smoking, 
+                family = binomial(link = logit))
+summary(full_model)
+anova(full_model, test = "Chisq")
+model1<-glm(dm~age+bmi+chol+hdl, 
+                family = binomial(link = logit))
+summary(model1)
+```
