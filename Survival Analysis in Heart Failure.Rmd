@@ -1,0 +1,255 @@
+---
+title: "Survival Analysis in Heart Failure"
+output: html_document
+date: "2025-03-05"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r library}
+library(ggplot2)
+library(survival)
+library(survminer)
+```
+
+## Load and Check the Dataset
+
+```{r load_data_check}
+g<-read.csv("D:/Coursera/Imperial college/simulated-HF-mort-data-for-GMPH.csv", head=TRUE, sep = ",")
+dim(g)
+names(g)
+g[1:5,]
+```
+
+## Structure the Data
+
+Turn each column of the data set into a variable.
+```{r column_variable}
+gender<-as.factor(g$gender)
+fu_time<-g$fu_time
+death<-g$death
+age<-g$age
+ethnicgroup<-as.factor(g$ethnicgroup)
+prior_dnas<-g$prior_dnas
+copd<-as.factor(g$copd)
+```
+
+## Kaplan-Meier Plot
+
+Run an Overall Kaplan-Meier Plot.
+```{r overall_KM}
+kim_fit<-survfit(Surv(fu_time,death)~1)
+plot(kim_fit)
+summary(kim_fit, times = c(1:7, 30, 60, 90*(1:10)))
+```
+Kaplan-Meier Plot-Split Curve by Gender.
+```{r gender_KM}
+km_gender_fit<-survfit(Surv(fu_time, death)~gender)
+plot(km_gender_fit)
+survdiff(Surv(fu_time, death)~gender, rho = 0)
+```
+Kaplan-Meier Plot-Split Curve by Age.
+```{r age_KM}
+age_group<-ifelse(age>=65, "aged 65", "under 65")
+kim_age_fit<-survfit(Surv(fu_time, death)~age_group)
+plot(kim_age_fit)
+survdiff(Surv(fu_time, death)~age_group, rho = 0)
+```
+
+## Simple Cox Regression
+
+```{r cox_age}
+cox<-coxph(Surv(fu_time, death)~age)
+summary(cox)
+```
+
+```{r cox_ethnicgroup}
+cox<-coxph(Surv(fu_time, death)~ethnicgroup)
+summary(cox)
+table(ethnicgroup)
+```
+
+It can be seen that there are 43 missing values, and we'll make an extra category for them, "ethnicgroup8".
+```{r cox_ethnicgroup_na}
+levels(ethnicgroup)<-c(levels(ethnicgroup), "8")
+ethnicgroup[is.na(ethnicgroup)]<-"8"
+cox<-coxph(Surv(fu_time, death)~ethnicgroup)
+summary(cox)
+```
+
+With just one categorical predictor in the model, it doesn’t matter whether you leave out or recode and include missing values of that predictor. When we come to include multiple predictors later in the course, however, it’s very possible that your choice could affect the results. It’s a good idea to try it both ways and check.
+
+## Handling the missing data
+
+When we need to deal with the missing value, the first thing to do is know the data. 
+
+There are three types of missing value, MCAR, MAR, and MNAR. 
+
+MCAR: We say that data are 'missing completely at random' (MCAR) when the complete cases (patients without any missing values for a given data item) are a random sample of the whole dataset (all patients). This can happen when a participant didn't have time to fill out the questionnaire or some information was lost or misplaced - and none of these things happened in a systematic way. This is the easiest situation to deal with. 
+
+MAR: In this case, missingness can be explained by other variables for which there is full information. For example, if people with a higher education are less likely to disclose their income, then income is MAR because the chance of income values being missing depends on the patient’s education. In this situation, which is pretty common, we can “fill in” the missing values on the basis of another variable.
+
+MNAR: Data that are 'missing not at random' (MNAR) are neither MAR nor MCAR. For example, you could be missing medical information on the severity of diabetes when they are too ill to see a doctor and provide that information; missingness depends partly on the diabetes status, as is the case for MAR, but it also depends on the severity of illness, which can’t always be captured. In general, data are MNAR when the missingness is specifically related to what’s missing and so the probability of the value being missing depends on unobserved variables, i.e., variables not in your data set. This is generally the most problematic type.
+
+Here are some of the most used techniques for handling missing data.
+
+Complete case analysis (or available case analysis, or listwise deletion):
+
+In this approach, the cases with missing data are simply omitted from the analysis. If the data are MCAR, this will produce unbiased estimates as long as the sample size is still sufficiently large. If the data are MAR or MNAR, the estimates will be biased. That’s a good reason why you need to understand the reason for the missing values. It’s tempting to just hope they’re completely random, but you need to think through the problem, run some descriptive analyses and ask the data provider if necessary and possible.
+
+Mean substitution (or mean imputation):
+
+Replace (“impute”) the missing values of a variable, with the mean of the available values of the same variable. For example, if some male patients are missing values, then just assign them the overall mean value for the male patients who do have values. This has the advantage of not changing the overall mean for that variable. However, it artificially decreases the estimated variation. It also makes it difficult to detect correlations between the imputed variable and other variables. Hence mean substitution always gives biased results and is not recommended.
+
+Multiple imputation:
+
+Missing variables are assumed to be MAR (or MCAR) and are imputed by drawing from a distribution. This is done multiple times and yields multiple different completed datasets. Each of these datasets is analysed, and the results are combined into a single overall result. Multiple imputation has been shown to yield unbiased results for MAR or MCAR data. 
+
+Maximum likelihood:
+
+This approach also gives unbiased results for MAR (or MCAR) data. Data are assumed to be normally distributed with a certain (multivariate) mean and variance. Observed data are used to compute the mean and variance, and missing data are drawn from the resulting normal distribution. We draw many times from the distribution until the mean and variance of the completed data are as close as they can get to that of the observed data.
+
+MNAR data need to be handled on a case-by-case basis.
+
+## Multiple Cox Model
+
+When we want to incorporate more variables into the Cox model, we need to summarise each of them first, to see if they too have any hidden traps.
+
+```{r summarise_vars}
+summary(age)
+t<-table(gender, exclude = NULL)
+addmargins(t)
+round(100*prop.table(t), digits = 1)
+t<-table(prior_dnas)
+addmargins(t)
+round(100*prop.table(t), digits = 1)
+t<-table(ethnicgroup, exclude = NULL)
+addmargins(t)
+round(100*prop.table(t), digits = 1)
+t<-table(copd, exclude = NULL)
+addmargins(t)
+round(100*prop.table(t), digits = 1)
+```
+
+```{r multi_cox}
+cox<-coxph(Surv(fu_time, death)~age+gender+prior_dnas+ethnicgroup+copd)
+summary(cox)
+```
+
+Model that doesn't converge:
+```{r non_converge}
+quintile<-as.factor(g$quintile)
+cox<-coxph(Surv(fu_time, death)~age+gender+copd+ethnicgroup+quintile)
+summary(cox)
+```
+
+Analyze variable "quintile".
+
+```{r an_quintile}
+table(quintile, exclude = NULL)
+t<-table(quintile, death)
+t
+round(100*prop.table(t), digits = 1)
+```
+
+1.Only four patients have quintile zero. This means invalid quintile.
+
+2.Of those four patients with quintile zero, no one died. That itself might not be a problem, but we’ve let R choose the reference category by default, and it’s chosen quintile zero. All the other five hazard ratios are relative to this tiny group of patients in which no one died.
+
+There are several methods to deal with the problem:
+
+1. Change the reference category; 2. Combine categories; 3. Exclude the patients; 4. Drop the offending variable.
+
+```{r fix_problem}
+#change the reference category
+quintile<-relevel(quintile, ref = "1")
+cox<-coxph(Surv(fu_time, death)~age+gender+copd+ethnicgroup+quintile)
+summary(cox)
+#combine quintile 0 with quintile 5
+quintile_5groups<-g[,"quintile"]
+quintile_5groups[quintile_5groups==0]<-5
+quintile_5groups<-as.factor(quintile_5groups)
+cox<-coxph(Surv(fu_time, death)~age+gender+copd+ethnicgroup+quintile_5groups)
+summary(cox)
+#drop the quintile zero patients
+quintile_5groups <- g[,"quintile"] 
+quintile_5groups[quintile_5groups==0] <- NA
+quintile_5groups <- as.factor(quintile_5groups)
+cox<-coxph(Surv(fu_time, death)~age+gender+copd+ethnicgroup+quintile_5groups)
+summary(cox)
+#drop the offending variable
+cox <- coxph(Surv(fu_time, death) ~ age + gender + copd + ethnicgroup) 
+summary(cox)
+```
+
+## Three Tests Required Before Run a Cox Model
+
+First, checking the proportionality assumption by Schoenfeld residuals.
+If the assumption is met then the hazard lines will be roughly parallel to each other.
+If the p-value > 0.05, the hizards are proportional.
+```{r prop_test}
+#test age
+fit<-coxph(Surv(fu_time, death) ~ gender)
+temp<-cox.zph(fit)
+print(temp)
+plot(temp)
+#test copd
+fit_copd<-coxph(Surv(fu_time, death)~copd)
+temp_copd<-cox.zph(fit_copd)
+print(temp_copd)
+plot(temp_copd)
+```
+
+Second, check the non-linearity by Martingale residual.
+```{r linear_test}
+ggcoxfunctional(Surv(fu_time, death) ~ age + log(age) + sqrt(age), data=g) 
+```
+
+Third, check the outliers by Deviance residual.
+```{r outlier_test}
+res.cox<-coxph(Surv(fu_time, death)~age)
+ggcoxdiagnostics(res.cox, type = "dfbeta", linear.predictions = FALSE, 
+                 ggtheme = theme_bw())
+res.cox <- coxph(Surv(fu_time, death) ~ age) 
+ggcoxdiagnostics(res.cox, type = "deviance", 
+                 linear.predictions = FALSE, ggtheme = theme_bw())
+```
+
+## When the proportionality assumption is not met
+
+When the proportionality assumption is not met, there is a statistical interaction between predictor and time. The model is short of a coefficient. We can add a coefficient for this interaction, then the problem would be solved.
+```{r }
+fit <- coxph(Surv(fu_time, death) ~ gender + tt(gender)) 
+# "tt" is the time-transform function 
+summary(fit) 
+```
+
+## Select predictors for Cox Model
+
+```{r select}
+ihd<-as.factor(g$ihd)
+los<-g$los
+renal<-as.factor(g$renal_disease)
+pneumonia<-as.factor(g$pneumonia)
+pvd<-as.factor(g$pvd)
+diabetes<-as.factor(g$diabetes)
+valvular<-as.factor(g$valvular_disease)
+defib<-as.factor(g$defib)
+stroke<-as.factor(g$stroke)
+ht<-as.factor(g$hypertension)
+ca<-as.factor(g$cancer)
+mets<-as.factor(g$metastatic_cancer)
+mental_health<-as.factor(g$mental_health)
+cog_imp <- as.factor(ifelse(g$dementia == 1 | g$senile == 1, 1, 0))
+full_model<-coxph(Surv(fu_time, death)~age+gender+ethnicgroup
+                  +ihd+valvular+pvd+stroke+copd+pneumonia+ht+renal
+                  +ca+mets+mental_health+los+cog_imp+prior_dnas)
+summary(full_model)
+model<-coxph(Surv(fu_time, death)~age+gender
+                  +valvular+pneumonia+mets+cog_imp)
+summary(model)
+temp <- cox.zph(model)  
+print(temp)
+```
