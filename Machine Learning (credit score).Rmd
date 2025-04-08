@@ -1,0 +1,51 @@
+---
+title: "Machine Learning (credit score)"
+output: html_document
+date: "2025-04-08"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load the Raw Dataset
+
+```{r load_data}
+set.seed(1)
+library(neuralnet)
+dataset<-read.csv("D:/Probability and Statistics/demo_week1/creditset.csv")
+head(dataset)
+```
+
+## Extract a Set to Train the NN and Select the Test Set
+
+
+```{r trainset}
+trainset<-dataset[1:800,]
+testset<-dataset[800:2000,]
+```
+
+## Build the Neural Network (NN)
+
+```{r build_NN}
+creditnet<-neuralnet(default10yr~LTI+age, data=trainset, hidden = 4, lifesign = "minimal", linear.output = FALSE, threshold = 0.1)
+```
+
+## Plot the NN
+
+```{r plot_creditnet}
+plot(creditnet,rep = "best")
+```
+
+## Test the Resulting Output
+
+```{r test_output}
+temp_test<-subset(testset, select = c("LTI","age"))
+creditnet.results<-compute(creditnet,temp_test)
+head(temp_test)
+results<-data.frame(actual=testset$default10yr,
+                    prediction=creditnet.results$net.result)
+results[100:115,]
+results$prediction<-round(results$prediction)
+results[100:115,]
+```
